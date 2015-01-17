@@ -172,7 +172,7 @@ public class Main extends HttpServlet
 				// Get all descriptions associated with phone number from DB. Populate hashmap mapping description to frequency
 			    while (rs.next())
 			    {
-			    	String description = rs.getString(0);
+			    	String description = rs.getString("description");
 			    	Integer numOccurences = descriptionOccurences.get(description);
 			    	if (numOccurences == null)
 			    	{
