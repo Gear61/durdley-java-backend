@@ -6,6 +6,8 @@ import javax.servlet.http.*;
 
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.*;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 public class Main extends HttpServlet
 {
@@ -31,10 +33,15 @@ public class Main extends HttpServlet
 				jb.append(line);
 			}
 		}
-		catch (Exception e)
+		catch (IOException e) {}
+		
+		// Parse the request body into a JSON object
+		try
 		{
+			JSONObject jsonObject = new JSONObject(jb.toString());
+			resp.getWriter().print(jsonObject.toString());
 		}
-		resp.getWriter().print(jb.toString());
+		catch (JSONException e1) {}
 	}
 
 	private void showHome(HttpServletRequest req, HttpServletResponse resp)
