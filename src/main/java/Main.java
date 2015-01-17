@@ -1,4 +1,6 @@
+import java.io.BufferedReader;
 import java.io.IOException;
+
 import javax.servlet.ServletException;
 import javax.servlet.http.*;
 
@@ -18,7 +20,21 @@ public class Main extends HttpServlet
 	protected void doPost(HttpServletRequest req, HttpServletResponse resp)
         throws ServletException, IOException
 	{
-		resp.getWriter().print("Durdle Post");
+		// Read in request body (which should be a JSON)
+		StringBuffer jb = new StringBuffer();
+		String line = null;
+		try
+		{
+			BufferedReader reader = req.getReader();
+			while ((line = reader.readLine()) != null)
+			{
+				jb.append(line);
+			}
+		}
+		catch (Exception e)
+		{
+		}
+		resp.getWriter().print(jb.toString());
 	}
 
 	private void showHome(HttpServletRequest req, HttpServletResponse resp)
