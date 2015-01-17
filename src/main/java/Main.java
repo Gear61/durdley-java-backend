@@ -18,7 +18,7 @@ import org.json.JSONObject;
 
 public class Main extends HttpServlet
 {
-	private static final String TABLE_CREATION = "CREATE TABLE Descriptions IF NOT EXISTS (targetPhoneNumber varchar(15), description varchar(255), describerPhoneNumber varchar(15), "
+	private static final String TABLE_CREATION = "CREATE TABLE IF NOT EXISTS Descriptions (targetPhoneNumber varchar(15), description varchar(255), describerPhoneNumber varchar(15), "
 											   + "CONSTRAINT uniqueDescription UNIQUE (targetPhoneNumber, description, describerPhoneNumber))";
 	
 	// JSON keys
