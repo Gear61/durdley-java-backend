@@ -129,8 +129,8 @@ public class Main extends HttpServlet
 
 				Statement stmt = connection.createStatement();
 
-				String insertPart1 = "INSERT INTO Descriptions VALUES (" + targetPhoneNumber + ", ";
-				String insertPart2 = ", " + describerPhoneNumber + ")";
+				String insertPart1 = "INSERT INTO Descriptions VALUES ('" + targetPhoneNumber + "', '";
+				String insertPart2 = "', '" + describerPhoneNumber + "')";
 				for (int i = 0; i < descriptions.length(); i++)
 				{
 					stmt.executeUpdate(insertPart1 + descriptions.getString(i) + insertPart2);
