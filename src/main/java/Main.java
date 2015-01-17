@@ -47,7 +47,7 @@ public class Main extends HttpServlet
 		}
 		catch (Exception e)
 		{
-			resp.getWriter().print("COULDN'T MAKE TABLE");
+			resp.getWriter().print("There was an error: " + e.getMessage());
 			return;
 		}
 		finally
