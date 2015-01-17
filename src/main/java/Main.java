@@ -10,13 +10,21 @@ import org.eclipse.jetty.servlet.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.*;
+import java.util.Iterator;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 public class Main extends HttpServlet
 {
-	private static final String TABLE_CREATION = "CREATE TABLE Persons (targetPhoneNumber int, description varchar(255), describerPhoneNumber int)";
+	private static final String TABLE_CREATION = "CREATE TABLE Descriptions IF NOT EXISTS (targetPhoneNumber varchar(15), description varchar(255), describerPhoneNumber varchar(15), "
+											   + "CONSTRAINT uniqueDescription UNIQUE (targetPhoneNumber, description, describerPhoneNumber))";
+	
+	// JSON keys
+	String DESCRIBER_PHONE_NUMBER_KEY = "describerPhoneNumber";
+	String TARGET_PHONE_NUMBER_KEY = "targetPhoneNumber";
+	String DESCRIPTIONS_KEY = "descriptions";
 	
 	@Override
 	protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException,
@@ -71,9 +79,61 @@ public class Main extends HttpServlet
 		try
 		{
 			JSONObject jsonObject = new JSONObject(jb.toString());
-			resp.getWriter().print(jsonObject.toString());
+			if (req.getRequestURI().endsWith("/addDescriptions"))
+			{
+				addDescriptions(resp, jsonObject);
+			}
+			
+			if (req.getRequestURI().endsWith("/removeDescription"))
+			{
+				addDescriptions(resp, jsonObject);
+			}
+			
+			if (req.getRequestURI().endsWith("/getDescriptionsOfXByY"))
+			{
+				addDescriptions(resp, jsonObject);
+			}
+			
+			if (req.getRequestURI().endsWith("/descriptionProfile"))
+			{
+				addDescriptions(resp, jsonObject);
+			}
 		}
 		catch (JSONException e1) {}
+	}
+	
+	// 1. /addDesciptions
+	// Add some amount of descriptions of target person by a certain describer
+	/* EXAMPLE REQUEST
+	{
+	   "describerPhoneNumber":"5104494353",
+	   "targetPhoneNumber":"5103660115",
+	   "descriptions":["smart", "a durdle"]
+	} */
+	private void addDescriptions(HttpServletResponse resp, JSONObject requestBody)
+		throws ServletException, IOException, JSONException
+	{
+		JSONObject response = new JSONObject();
+		try
+		{
+			String describerPhoneNumber = requestBody.getString(DESCRIBER_PHONE_NUMBER_KEY);
+			String targetPhoneNumber = requestBody.getString(TARGET_PHONE_NUMBER_KEY);
+			JSONArray descriptions = requestBody.getJSONArray(DESCRIPTIONS_KEY);
+
+			resp.getWriter().print("Describer phone number: " + describerPhoneNumber + "\n");
+			resp.getWriter().print("Target phone number: " + targetPhoneNumber + "\n");
+			resp.getWriter().print("Descriptions: ");
+			
+			for (int i = 0; i < descriptions.length(); i++)
+			{
+				resp.getWriter().print(descriptions.getJSONObject(i).toString());
+			}
+		}
+		catch (Exception e)
+		{
+			response.put("STATUS", "FAILED");
+			resp.getWriter().print(response.toString());
+		}
 	}
 	
 	private Connection getConnection() throws URISyntaxException, SQLException
