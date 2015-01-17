@@ -28,33 +28,6 @@ public class Main extends HttpServlet
 	protected void doPost(HttpServletRequest req, HttpServletResponse resp)
 			throws ServletException, IOException
 	{
-		// Create table if it doesn't exist
-		Connection connection = null;
-		try
-		{
-			connection = getConnection();
-			Statement stmt = connection.createStatement();
-			stmt.executeUpdate(TABLE_CREATION);
-		}
-		catch (Exception e)
-		{
-			resp.getWriter().print("There was an error: " + e.getMessage());
-			return;
-		}
-		finally
-		{
-			if (connection != null)
-			{
-				try
-				{
-					connection.close();
-				}
-				catch (SQLException e)
-				{
-				}
-			}
-		}
-
 		// Read in request body (which should be a JSON)
 		StringBuffer jb = new StringBuffer();
 		String line = null;
