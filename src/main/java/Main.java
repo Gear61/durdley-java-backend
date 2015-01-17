@@ -22,6 +22,13 @@ public class Main extends HttpServlet
 	private static final String TABLE_CREATION = "CREATE TABLE Persons (targetPhoneNumber int, description varchar(255), describerPhoneNumber int)";
   
 	@Override
+	protected void doGet(HttpServletRequest req, HttpServletResponse resp)
+	        throws ServletException, IOException
+	{
+		resp.getWriter().print("Durdle");
+	}
+	
+	@Override
 	protected void doPost(HttpServletRequest req, HttpServletResponse resp)
         throws ServletException, IOException
 	{
@@ -67,7 +74,7 @@ public class Main extends HttpServlet
 		try
 		{
 			JSONObject jsonObject = new JSONObject (jb.toString());
-			if (req.getRequestURI().endsWith("/addDescription"))
+			if (req.getRequestURI().endsWith("/addDescriptions"))
 			{
 				addDescriptions(req, resp, jsonObject);
 			}
@@ -75,7 +82,7 @@ public class Main extends HttpServlet
 		catch (JSONException e)
 		{
 			// crash and burn
-			throw new IOException("Error parsing JSON request string");
+			System.out.println("JSON PARSING FAILING. WHY.");
 		}
 	}
 
