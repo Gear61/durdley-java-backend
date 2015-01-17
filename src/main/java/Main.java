@@ -89,7 +89,7 @@ public class Main extends HttpServlet
 			
 			if (req.getRequestURI().endsWith("/removeDescription"))
 			{
-				addDescriptions(resp, jsonObject);
+				removeDescription(resp, jsonObject);
 			}
 			
 			if (req.getRequestURI().endsWith("/getDescriptionsOfXByY"))
@@ -135,17 +135,61 @@ public class Main extends HttpServlet
 				{
 					stmt.executeUpdate(insertPart1 + descriptions.getString(i) + insertPart2);
 				}
+				response.put("STATUS", "SUCCESS");
 			}
 			catch (Exception e)
 			{
-				resp.getWriter().print("There was an error: " + e.getMessage());
+				response.put("STATUS", "FAILED");
+				response.put("ERROR", e.getMessage());
 			}
 		}
 		catch (JSONException e)
 		{
 			response.put("STATUS", "FAILED");
-			resp.getWriter().print("There was an error: " + e.getMessage());
+			response.put("ERROR", e.getMessage());
 		}
+		resp.getWriter().println(response.toString());
+	}
+	
+	// 2. /removeDescription
+	// Add some amount of descriptions of target person by a certain describer
+	/* EXAMPLE REQUEST
+	{
+		"describerPhoneNumber":"5104494353",
+		"targetPhoneNumber":"5103660115",
+		"description":"smart"
+	} */
+	private void removeDescription(HttpServletResponse resp, JSONObject requestBody)
+			throws ServletException, IOException, JSONException
+	{
+		JSONObject response = new JSONObject();
+		try
+		{
+			String describerPhoneNumber = requestBody.getString(DESCRIBER_PHONE_NUMBER_KEY);
+			String targetPhoneNumber = requestBody.getString(TARGET_PHONE_NUMBER_KEY);
+			String description = requestBody.getString(DESCRIPTION_KEY);
+
+			try
+			{
+				Connection connection = getConnection();
+				Statement stmt = connection.createStatement();
+				String removeDescription = "DELETE FROM Descriptions WHERE targetPhoneNumber = '" + targetPhoneNumber + "'" +
+						  " AND describerPhoneNumber = '" + describerPhoneNumber +  "'" + " AND description = '" + description + "'";
+				stmt.executeUpdate(removeDescription);
+				response.put("STATUS", "SUCCESS");
+			}
+			catch (Exception e)
+			{
+				response.put("STATUS", "FAILED");
+				response.put("ERROR", e.getMessage());
+			}
+		}
+		catch (JSONException e)
+		{
+			response.put("STATUS", "FAILED");
+			response.put("ERROR", e.getMessage());
+		}
+		resp.getWriter().println(response.toString());
 	}
 	
 	// Get how a certain describer described a certain target - Used for editing how you've described someone
@@ -180,18 +224,19 @@ public class Main extends HttpServlet
 			    }
 			    
 			    response.put(DESCRIPTIONS_KEY, descriptions);
-			    resp.getWriter().print(response.toString());
 			}
 			catch (Exception e)
 			{
-				resp.getWriter().print("There was an error: " + e.getMessage());
+				response.put("STATUS", "FAILED");
+				response.put("ERROR", e.getMessage());
 			}
 		}
 		catch (JSONException e)
 		{
 			response.put("STATUS", "FAILED");
-			resp.getWriter().print("There was an error: " + e.getMessage());
+			response.put("ERROR", e.getMessage());
 		}
+		resp.getWriter().print(response.toString());
 	}
 	
 	// Get ALL descriptions that have been assigned to a certain target
@@ -241,18 +286,19 @@ public class Main extends HttpServlet
 			    }
 			    
 			    response.put(DESCRIPTIONS_KEY, descriptions);
-			    resp.getWriter().print(response.toString());
 			}
 			catch (Exception e)
 			{
-				resp.getWriter().print("There was an error: " + e.getMessage());
+				response.put("STATUS", "FAILED");
+				response.put("ERROR", e.getMessage());
 			}
 		}
 		catch (JSONException e)
 		{
 			response.put("STATUS", "FAILED");
-			resp.getWriter().print("There was an error: " + e.getMessage());
+			response.put("ERROR", e.getMessage());
 		}
+		resp.getWriter().print(response.toString());
 	}
 	
 	private Connection getConnection() throws URISyntaxException, SQLException
