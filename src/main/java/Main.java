@@ -94,7 +94,7 @@ public class Main extends HttpServlet
 			
 			if (req.getRequestURI().endsWith("/getDescriptionsOfXByY"))
 			{
-				addDescriptions(resp, jsonObject);
+				getDescriptionsOfXByY(resp, jsonObject);
 			}
 			
 			if (req.getRequestURI().endsWith("/descriptionProfile"))
@@ -135,6 +135,52 @@ public class Main extends HttpServlet
 				{
 					stmt.executeUpdate(insertPart1 + descriptions.getString(i) + insertPart2);
 				}
+			}
+			catch (Exception e)
+			{
+				resp.getWriter().print("There was an error: " + e.getMessage());
+			}
+		}
+		catch (JSONException e)
+		{
+			response.put("STATUS", "FAILED");
+			resp.getWriter().print("There was an error: " + e.getMessage());
+		}
+	}
+	
+	// Get how a certain describer described a certain target - Used for editing how you've described someone
+	// 3. /getDescriptionsOfXByY
+	/* EXAMPLE REQUEST
+	{
+	   "describerPhoneNumber":"5104494353",
+	   "targetPhoneNumber":"5103660115"
+	} */
+	private void getDescriptionsOfXByY(HttpServletResponse resp, JSONObject requestBody)
+			throws ServletException, IOException, JSONException
+	{
+		JSONObject response = new JSONObject();
+		JSONArray descriptions = new JSONArray();
+		try
+		{
+			String describerPhoneNumber = requestBody.getString(DESCRIBER_PHONE_NUMBER_KEY);
+			String targetPhoneNumber = requestBody.getString(TARGET_PHONE_NUMBER_KEY);
+			try
+			{
+				Connection connection = getConnection();
+				Statement stmt = connection.createStatement();
+				String getDescriptionsQuery = "SELECT description FROM Descriptions WHERE targetPhoneNumber = '" + targetPhoneNumber + "'" +
+											  " AND describerPhoneNumber = '" + describerPhoneNumber +  "'";
+				ResultSet rs = stmt.executeQuery(getDescriptionsQuery);
+				
+				// Get all descriptions associated with phone number from DB. Populate hashmap mapping description to frequency
+			    while (rs.next())
+			    {
+			    	String description = rs.getString("description");
+			    	descriptions.put(description);
+			    }
+			    
+			    response.put(DESCRIPTIONS_KEY, descriptions);
+			    resp.getWriter().print(response.toString());
 			}
 			catch (Exception e)
 			{
