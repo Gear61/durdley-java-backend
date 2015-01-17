@@ -10,8 +10,7 @@ import org.eclipse.jetty.servlet.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.*;
-import java.util.Iterator;
-
+import java.util.HashMap;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -25,6 +24,10 @@ public class Main extends HttpServlet
 	String DESCRIBER_PHONE_NUMBER_KEY = "describerPhoneNumber";
 	String TARGET_PHONE_NUMBER_KEY = "targetPhoneNumber";
 	String DESCRIPTIONS_KEY = "descriptions";
+	
+	// JSON response keys
+	String DESCRIPTION_KEY = "description";
+	String NUM_OCCURENCES_KEY = "num_occurences";
 	
 	@Override
 	protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException,
@@ -96,7 +99,7 @@ public class Main extends HttpServlet
 			
 			if (req.getRequestURI().endsWith("/descriptionProfile"))
 			{
-				addDescriptions(resp, jsonObject);
+				descriptionProfile(resp, jsonObject);
 			}
 		}
 		catch (JSONException e1) {}
@@ -120,13 +123,83 @@ public class Main extends HttpServlet
 			String targetPhoneNumber = requestBody.getString(TARGET_PHONE_NUMBER_KEY);
 			JSONArray descriptions = requestBody.getJSONArray(DESCRIPTIONS_KEY);
 
-			resp.getWriter().print("Describer phone number: " + describerPhoneNumber + "\n");
-			resp.getWriter().print("Target phone number: " + targetPhoneNumber + "\n");
-			resp.getWriter().print("Descriptions: ");
-			
-			for (int i = 0; i < descriptions.length(); i++)
+			try
 			{
-				resp.getWriter().print(descriptions.getString(i));
+				Connection connection = getConnection();
+
+				Statement stmt = connection.createStatement();
+
+				String insertPart1 = "INSERT INTO Descriptions VALUES (" + targetPhoneNumber + ", ";
+				String insertPart2 = ", " + describerPhoneNumber + ")";
+				for (int i = 0; i < descriptions.length(); i++)
+				{
+					stmt.executeUpdate(insertPart1 + descriptions.getString(i) + insertPart2);
+				}
+			}
+			catch (Exception e)
+			{
+				resp.getWriter().print("There was an error: " + e.getMessage());
+			}
+		}
+		catch (JSONException e)
+		{
+			response.put("STATUS", "FAILED");
+			resp.getWriter().print("There was an error: " + e.getMessage());
+		}
+	}
+	
+	// Get ALL descriptions that have been assigned to a certain target
+	// 4. /descriptionProfile
+	/* EXAMPLE REQUEST
+	{
+		"targetPhoneNumber":"5103660115",
+	} */
+	private void descriptionProfile(HttpServletResponse resp, JSONObject requestBody)
+			throws ServletException, IOException, JSONException
+	{
+		JSONObject response = new JSONObject();
+		JSONArray descriptions = new JSONArray();
+		try
+		{
+			String targetPhoneNumber = requestBody.getString(TARGET_PHONE_NUMBER_KEY);
+			try
+			{
+				Connection connection = getConnection();
+				Statement stmt = connection.createStatement();
+				ResultSet rs = stmt.executeQuery("SELECT description FROM Descriptions WHERE targetPhoneNumber = '" + targetPhoneNumber + "'");
+				HashMap<String, Integer> descriptionOccurences = new HashMap<String, Integer>();
+				
+				// Get all descriptions associated with phone number from DB. Populate hashmap mapping description to frequency
+			    while (rs.next())
+			    {
+			    	String description = rs.getString(0);
+			    	Integer numOccurences = descriptionOccurences.get(description);
+			    	if (numOccurences == null)
+			    	{
+			    		descriptionOccurences.put(description, 1);
+			    	}
+			    	else
+			    	{
+			    		descriptionOccurences.put(description, numOccurences + 1);
+			    	}
+			    }
+			    
+			    // Shove hashmap from before into a JSON array
+			    for (String currentDescription : descriptionOccurences.keySet())
+			    {
+			    	JSONObject descriptionPair = new JSONObject();
+			    	int numOccurences = descriptionOccurences.get(currentDescription);
+			    	descriptionPair.put(DESCRIPTION_KEY, currentDescription);
+			    	descriptionPair.put(NUM_OCCURENCES_KEY, numOccurences);
+			    	descriptions.put(descriptionPair);
+			    }
+			    
+			    response.put(DESCRIPTIONS_KEY, descriptions);
+			    resp.getWriter().print(response.toString());
+			}
+			catch (Exception e)
+			{
+				resp.getWriter().print("There was an error: " + e.getMessage());
 			}
 		}
 		catch (JSONException e)
