@@ -7,6 +7,10 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.*;
 
+// Alex's stuff
+import java.io.BufferedReader;
+import java.lang.StringBuffer;
+
 public class Main extends HttpServlet
 {
 	private static final String TABLE_CREATION = "CREATE TABLE Persons (targetPhoneNumber int, description varchar(255), describerPhoneNumber int)";
@@ -23,8 +27,28 @@ public class Main extends HttpServlet
 	protected void doPost(HttpServletRequest req, HttpServletResponse resp)
         throws ServletException, IOException
 	{
-		String requestUri = req.getRequestURI();
-		System.err.println(requestUri);
+		StringBuffer jb = new StringBuffer();
+		String line = null;
+		try
+		{
+			BufferedReader reader = req.getReader();
+			while ((line = reader.readLine()) != null)
+			{
+				jb.append(line);
+			}
+		}
+		catch (Exception e)
+		{
+			/*report an error*/
+		}
+
+		try
+		{
+			resp.getWriter().print(jb.toString());
+		}
+		catch (Exception e)
+		{
+		}
 	}
 
 	private void showDatabase(HttpServletRequest req, HttpServletResponse resp)
