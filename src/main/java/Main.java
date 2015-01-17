@@ -126,13 +126,13 @@ public class Main extends HttpServlet
 			
 			for (int i = 0; i < descriptions.length(); i++)
 			{
-				resp.getWriter().print(descriptions.getJSONObject(i).toString());
+				resp.getWriter().print(descriptions.getString(i));
 			}
 		}
-		catch (Exception e)
+		catch (JSONException e)
 		{
 			response.put("STATUS", "FAILED");
-			resp.getWriter().print(response.toString());
+			resp.getWriter().print("There was an error: " + e.getMessage());
 		}
 	}
 	
