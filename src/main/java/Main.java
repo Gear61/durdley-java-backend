@@ -1,6 +1,7 @@
 import java.io.IOException;
 import javax.servlet.ServletException;
 import javax.servlet.http.*;
+
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.*;
 
@@ -11,6 +12,13 @@ public class Main extends HttpServlet
 			IOException
 	{
 		showHome(req, resp);
+	}
+	
+	@Override
+	protected void doPost(HttpServletRequest req, HttpServletResponse resp)
+        throws ServletException, IOException
+	{
+		resp.getWriter().print("Durdle Post");
 	}
 
 	private void showHome(HttpServletRequest req, HttpServletResponse resp)
