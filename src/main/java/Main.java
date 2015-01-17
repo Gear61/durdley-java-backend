@@ -6,11 +6,18 @@ import javax.servlet.http.*;
 
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.sql.*;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
 public class Main extends HttpServlet
 {
+	private static final String TABLE_CREATION = "CREATE TABLE Persons (targetPhoneNumber int, description varchar(255), describerPhoneNumber int)";
+	
 	@Override
 	protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException,
 			IOException
@@ -22,6 +29,31 @@ public class Main extends HttpServlet
 	protected void doPost(HttpServletRequest req, HttpServletResponse resp)
         throws ServletException, IOException
 	{
+		// Create table if it doesn't exist
+		Connection connection = null;
+		try
+		{
+			connection = getConnection();
+			Statement stmt = connection.createStatement();
+			stmt.executeUpdate(TABLE_CREATION);
+		}
+		catch (Exception e)
+		{
+			resp.getWriter().print("COULDN'T MAKE TABLE");
+			return;
+		}
+		finally
+		{
+			if (connection != null)
+			{
+				try
+				{
+					connection.close();
+				}
+				catch (SQLException e) {}
+			}
+		}
+		
 		// Read in request body (which should be a JSON)
 		StringBuffer jb = new StringBuffer();
 		String line = null;
@@ -42,6 +74,17 @@ public class Main extends HttpServlet
 			resp.getWriter().print(jsonObject.toString());
 		}
 		catch (JSONException e1) {}
+	}
+	
+	private Connection getConnection() throws URISyntaxException, SQLException
+	{
+	    URI dbUri = new URI(System.getenv("DATABASE_URL"));
+
+	    String username = dbUri.getUserInfo().split(":")[0];
+	    String password = dbUri.getUserInfo().split(":")[1];
+	    String dbUrl = "jdbc:postgresql://" + dbUri.getHost() + dbUri.getPath();
+
+	    return DriverManager.getConnection(dbUrl, username, password);
 	}
 
 	private void showHome(HttpServletRequest req, HttpServletResponse resp)
