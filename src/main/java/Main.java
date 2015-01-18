@@ -11,6 +11,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.*;
 import java.util.HashMap;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -84,25 +85,34 @@ public class Main extends HttpServlet
 			JSONObject jsonObject = new JSONObject(jb.toString());
 			if (req.getRequestURI().endsWith("/addDescriptions"))
 			{
-				addDescriptions(resp, jsonObject);
+				addDescriptions(resp, jsonObject, connection);
 			}
 			
 			if (req.getRequestURI().endsWith("/removeDescription"))
 			{
-				removeDescription(resp, jsonObject);
+				removeDescription(resp, jsonObject, connection);
 			}
 			
 			if (req.getRequestURI().endsWith("/getDescriptionsOfXByY"))
 			{
-				getDescriptionsOfXByY(resp, jsonObject);
+				getDescriptionsOfXByY(resp, jsonObject, connection);
 			}
 			
 			if (req.getRequestURI().endsWith("/descriptionProfile"))
 			{
-				descriptionProfile(resp, jsonObject);
+				descriptionProfile(resp, jsonObject, connection);
 			}
 		}
 		catch (JSONException e1) {}
+		catch (SQLException e) {}
+		finally
+		{
+			try
+			{
+				connection.close();
+			}
+			catch (SQLException e) {}
+		}
 	}
 	
 	// 1. /addDesciptions
@@ -113,7 +123,7 @@ public class Main extends HttpServlet
 	   "targetPhoneNumber":"5103660115",
 	   "descriptions":["smart", "a durdle"]
 	} */
-	private void addDescriptions(HttpServletResponse resp, JSONObject requestBody)
+	private void addDescriptions(HttpServletResponse resp, JSONObject requestBody, Connection connection)
 		throws ServletException, IOException, JSONException
 	{
 		JSONObject response = new JSONObject();
@@ -125,8 +135,6 @@ public class Main extends HttpServlet
 
 			try
 			{
-				Connection connection = getConnection();
-
 				Statement stmt = connection.createStatement();
 
 				String insertPart1 = "INSERT INTO Descriptions VALUES ('" + targetPhoneNumber + "', '";
@@ -167,8 +175,8 @@ public class Main extends HttpServlet
 		"targetPhoneNumber":"5103660115",
 		"description":"smart"
 	} */
-	private void removeDescription(HttpServletResponse resp, JSONObject requestBody)
-			throws ServletException, IOException, JSONException
+	private void removeDescription(HttpServletResponse resp, JSONObject requestBody, Connection connection)
+			throws ServletException, IOException, JSONException, SQLException
 	{
 		JSONObject response = new JSONObject();
 		try
@@ -179,7 +187,6 @@ public class Main extends HttpServlet
 
 			try
 			{
-				Connection connection = getConnection();
 				Statement stmt = connection.createStatement();
 				String removeDescription = "DELETE FROM Descriptions WHERE targetPhoneNumber = '" + targetPhoneNumber + "'" +
 						  " AND describerPhoneNumber = '" + describerPhoneNumber +  "'" + " AND description = '" + description + "'";
@@ -207,7 +214,7 @@ public class Main extends HttpServlet
 	   "describerPhoneNumber":"5104494353",
 	   "targetPhoneNumber":"5103660115"
 	} */
-	private void getDescriptionsOfXByY(HttpServletResponse resp, JSONObject requestBody)
+	private void getDescriptionsOfXByY(HttpServletResponse resp, JSONObject requestBody, Connection connection)
 			throws ServletException, IOException, JSONException
 	{
 		JSONObject response = new JSONObject();
@@ -218,7 +225,6 @@ public class Main extends HttpServlet
 			String targetPhoneNumber = requestBody.getString(TARGET_PHONE_NUMBER_KEY);
 			try
 			{
-				Connection connection = getConnection();
 				Statement stmt = connection.createStatement();
 				String getDescriptionsQuery = "SELECT description FROM Descriptions WHERE targetPhoneNumber = '" + targetPhoneNumber + "'" +
 											  " AND describerPhoneNumber = '" + describerPhoneNumber +  "'";
@@ -253,8 +259,8 @@ public class Main extends HttpServlet
 	{
 		"targetPhoneNumber":"5103660115",
 	} */
-	private void descriptionProfile(HttpServletResponse resp, JSONObject requestBody)
-			throws ServletException, IOException, JSONException
+	private void descriptionProfile(HttpServletResponse resp, JSONObject requestBody, Connection connection)
+			throws ServletException, IOException, JSONException, SQLException
 	{
 		JSONObject response = new JSONObject();
 		JSONArray descriptions = new JSONArray();
@@ -263,7 +269,6 @@ public class Main extends HttpServlet
 			String targetPhoneNumber = requestBody.getString(TARGET_PHONE_NUMBER_KEY);
 			try
 			{
-				Connection connection = getConnection();
 				Statement stmt = connection.createStatement();
 				ResultSet rs = stmt.executeQuery("SELECT description FROM Descriptions WHERE targetPhoneNumber = '" + targetPhoneNumber + "'");
 				HashMap<String, Integer> descriptionOccurences = new HashMap<String, Integer>();
