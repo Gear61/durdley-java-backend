@@ -10,7 +10,9 @@ import org.eclipse.jetty.servlet.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -72,14 +74,9 @@ public class Main extends HttpServlet
 		try
 		{
 			JSONObject jsonObject = new JSONObject(jb.toString());
-			if (req.getRequestURI().endsWith("/addDescriptions"))
+			if (req.getRequestURI().endsWith("/syncDescriptions"))
 			{
-				addDescriptions(resp, jsonObject, connection);
-			}
-			
-			if (req.getRequestURI().endsWith("/removeDescription"))
-			{
-				removeDescription(resp, jsonObject, connection);
+				syncDescriptions(resp, jsonObject, connection);
 			}
 			
 			if (req.getRequestURI().endsWith("/getDescriptionsOfXByY"))
@@ -104,15 +101,15 @@ public class Main extends HttpServlet
 		}
 	}
 	
-	// 1. /addDesciptions
-	// Add some amount of descriptions of target person by a certain describer
+	// 1. /syncDesciptions
+	// Syncs a Describer/Target relationship to what's in the request body, removing/adding descriptions as needed
 	/* EXAMPLE REQUEST
 	{
 	   "describerPhoneNumber":"5104494353",
 	   "targetPhoneNumber":"5103660115",
 	   "descriptions":["smart", "a durdle"]
 	} */
-	private void addDescriptions(HttpServletResponse resp, JSONObject requestBody, Connection connection)
+	private void syncDescriptions(HttpServletResponse resp, JSONObject requestBody, Connection connection)
 		throws ServletException, IOException, JSONException
 	{
 		JSONObject response = new JSONObject();
@@ -125,20 +122,32 @@ public class Main extends HttpServlet
 			try
 			{
 				Statement stmt = connection.createStatement();
-
-				String insertPart1 = "INSERT INTO Descriptions VALUES ('" + targetPhoneNumber + "', '";
-				String insertPart2 = "', '" + describerPhoneNumber + "')";
+				
+				HashSet<String> newDescriptions = new HashSet<String>();
 				for (int i = 0; i < descriptions.length(); i++)
 				{
-					String checkDescription = "SELECT * FROM Descriptions WHERE targetPhoneNumber = '" + targetPhoneNumber + "'" +
-							  " AND describerPhoneNumber = '" + describerPhoneNumber +  "'" + " AND description = '" + descriptions.getString(i) + "'";
-					ResultSet rs = stmt.executeQuery(checkDescription);
-					// If this description has been done before, bail
-					if (rs.next())
+					newDescriptions.add(descriptions.getString(i));
+				}
+				HashSet<String> currentDescriptions = getDescriptionsOfXByYQuery(connection, describerPhoneNumber, targetPhoneNumber);
+				
+				// First, we delete all of the "revoked" descriptions
+				for (String currentDescription : currentDescriptions)
+				{
+					if (!newDescriptions.contains(currentDescription))
 					{
-						continue;
+						removeDescription(connection, describerPhoneNumber, targetPhoneNumber, currentDescription);
 					}
-					stmt.executeUpdate(insertPart1 + descriptions.getString(i) + insertPart2);
+				}
+				
+				// Now we add all of the new descriptions
+				String insertPart1 = "INSERT INTO Descriptions VALUES ('" + targetPhoneNumber + "', '";
+				String insertPart2 = "', '" + describerPhoneNumber + "')";
+				for (String newDescription : newDescriptions)
+				{
+					if (!currentDescriptions.contains(newDescription))
+					{
+						stmt.executeUpdate(insertPart1 + newDescription + insertPart2);
+					}
 				}
 				response.put("STATUS", "SUCCESS");
 			}
@@ -156,48 +165,47 @@ public class Main extends HttpServlet
 		resp.getWriter().println(response.toString());
 	}
 	
-	// 2. /removeDescription
-	// Add some amount of descriptions of target person by a certain describer
-	/* EXAMPLE REQUEST
-	{
-		"describerPhoneNumber":"5104494353",
-		"targetPhoneNumber":"5103660115",
-		"description":"smart"
-	} */
-	private void removeDescription(HttpServletResponse resp, JSONObject requestBody, Connection connection)
+	// Removes a certain description assigned by a certain describer to a certain target
+	private void removeDescription(Connection connection, String describerPhoneNumber, String targetPhoneNumber, String description)
 			throws ServletException, IOException, JSONException, SQLException
 	{
-		JSONObject response = new JSONObject();
 		try
 		{
-			String describerPhoneNumber = requestBody.getString(DESCRIBER_PHONE_NUMBER_KEY);
-			String targetPhoneNumber = requestBody.getString(TARGET_PHONE_NUMBER_KEY);
-			String description = requestBody.getString(DESCRIPTION_KEY);
-
-			try
-			{
-				Statement stmt = connection.createStatement();
-				String removeDescription = "DELETE FROM Descriptions WHERE targetPhoneNumber = '" + targetPhoneNumber + "'" +
-						  " AND describerPhoneNumber = '" + describerPhoneNumber +  "'" + " AND description = '" + description + "'";
-				stmt.executeUpdate(removeDescription);
-				response.put("STATUS", "SUCCESS");
-			}
-			catch (Exception e)
-			{
-				response.put("STATUS", "FAILED");
-				response.put("ERROR", e.getMessage());
-			}
+			Statement stmt = connection.createStatement();
+			String removeDescription = "DELETE FROM Descriptions WHERE targetPhoneNumber = '" + targetPhoneNumber + "'" +
+					  " AND describerPhoneNumber = '" + describerPhoneNumber +  "'" + " AND description = '" + description + "'";
+			stmt.executeUpdate(removeDescription);
 		}
-		catch (JSONException e)
+		catch (Exception e)
 		{
-			response.put("STATUS", "FAILED");
-			response.put("ERROR", e.getMessage());
 		}
-		resp.getWriter().println(response.toString());
+	}
+	
+	private HashSet<String> getDescriptionsOfXByYQuery (Connection connection, String describerPhoneNumber, String targetPhoneNumber)
+	{
+		HashSet<String> descriptions = new HashSet<String>();
+		Statement stmt;
+		try
+		{
+			stmt = connection.createStatement();
+			String getDescriptionsQuery = "SELECT description FROM Descriptions WHERE targetPhoneNumber = '" + targetPhoneNumber + "'" +
+					  " AND describerPhoneNumber = '" + describerPhoneNumber +  "'";
+			ResultSet rs = stmt.executeQuery(getDescriptionsQuery);
+
+			while (rs.next())
+			{
+				String description = rs.getString("description");
+				descriptions.add(description);
+			}
+		}
+		catch (SQLException e)
+		{
+		}
+		return descriptions;
 	}
 	
 	// Get how a certain describer described a certain target - Used for editing how you've described someone
-	// 3. /getDescriptionsOfXByY
+	// 2. /getDescriptionsOfXByY
 	/* EXAMPLE REQUEST
 	{
 	   "describerPhoneNumber":"5104494353",
@@ -214,18 +222,11 @@ public class Main extends HttpServlet
 			String targetPhoneNumber = requestBody.getString(TARGET_PHONE_NUMBER_KEY);
 			try
 			{
-				Statement stmt = connection.createStatement();
-				String getDescriptionsQuery = "SELECT description FROM Descriptions WHERE targetPhoneNumber = '" + targetPhoneNumber + "'" +
-											  " AND describerPhoneNumber = '" + describerPhoneNumber +  "'";
-				ResultSet rs = stmt.executeQuery(getDescriptionsQuery);
-				
-				// Get all descriptions associated with phone number from DB. Populate hashmap mapping description to frequency
-			    while (rs.next())
-			    {
-			    	String description = rs.getString("description");
-			    	descriptions.put(description);
-			    }
-			    
+				HashSet<String> descriptionList = getDescriptionsOfXByYQuery(connection, describerPhoneNumber, targetPhoneNumber);
+				for (String description : descriptionList)
+				{
+					descriptions.put(description);
+				}
 			    response.put(DESCRIPTIONS_KEY, descriptions);
 			}
 			catch (Exception e)
@@ -243,7 +244,7 @@ public class Main extends HttpServlet
 	}
 	
 	// Get ALL descriptions that have been assigned to a certain target
-	// 4. /descriptionProfile
+	// 3. /descriptionProfile
 	/* EXAMPLE REQUEST
 	{
 		"targetPhoneNumber":"5103660115",
