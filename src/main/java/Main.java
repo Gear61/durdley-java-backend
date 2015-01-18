@@ -133,6 +133,14 @@ public class Main extends HttpServlet
 				String insertPart2 = "', '" + describerPhoneNumber + "')";
 				for (int i = 0; i < descriptions.length(); i++)
 				{
+					String checkDescription = "SELECT * FROM Descriptions WHERE targetPhoneNumber = '" + targetPhoneNumber + "'" +
+							  " AND describerPhoneNumber = '" + describerPhoneNumber +  "'" + " AND description = '" + descriptions.getString(i) + "'";
+					ResultSet rs = stmt.executeQuery(checkDescription);
+					// If this description has been done before, bail
+					if (!rs.next())
+					{
+						continue;
+					}
 					stmt.executeUpdate(insertPart1 + descriptions.getString(i) + insertPart2);
 				}
 				response.put("STATUS", "SUCCESS");
