@@ -54,17 +54,6 @@ public class Main extends HttpServlet
 			resp.getWriter().print("There was an error: " + e.getMessage());
 			return;
 		}
-		finally
-		{
-			if (connection != null)
-			{
-				try
-				{
-					connection.close();
-				}
-				catch (SQLException e) {}
-			}
-		}
 		
 		// Read in request body (which should be a JSON)
 		StringBuffer jb = new StringBuffer();
