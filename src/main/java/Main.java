@@ -137,7 +137,7 @@ public class Main extends HttpServlet
 							  " AND describerPhoneNumber = '" + describerPhoneNumber +  "'" + " AND description = '" + descriptions.getString(i) + "'";
 					ResultSet rs = stmt.executeQuery(checkDescription);
 					// If this description has been done before, bail
-					if (!rs.next())
+					if (rs.next())
 					{
 						continue;
 					}
