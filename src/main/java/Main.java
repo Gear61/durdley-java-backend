@@ -20,17 +20,18 @@ import org.json.JSONObject;
 
 public class Main extends HttpServlet
 {
-	private static final String TABLE_CREATION = "CREATE TABLE IF NOT EXISTS Descriptions (targetPhoneNumber varchar(15), description varchar(255), describerPhoneNumber varchar(15), "
-											   + "CONSTRAINT uniqueDescription UNIQUE (targetPhoneNumber, description, describerPhoneNumber))";
+	private static final String TABLE_CREATION = "CREATE TABLE IF NOT EXISTS Descriptions (targetFacebookId varchar(50), description varchar(255), describerFacebookId varchar(50), timestamp(int), "
+											   + "CONSTRAINT uniqueDescription UNIQUE (targetFacebookId, description, describerFacebookId))";
 	
 	// JSON keys
-	String DESCRIBER_PHONE_NUMBER_KEY = "describerPhoneNumber";
-	String TARGET_PHONE_NUMBER_KEY = "targetPhoneNumber";
+	String DESCRIBER_FACEBOOK_ID_KEY = "describerFacebookId";
+	String TARGET_FACEBOOK_ID_KEY = "targetFacebookId";
 	String DESCRIPTIONS_KEY = "descriptions";
 	
 	// JSON response keys
 	String DESCRIPTION_KEY = "description";
 	String NUM_OCCURENCES_KEY = "num_occurences";
+	String DESCRIBERS_KEY = "describers";
 	
 	@Override
 	protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException,
@@ -39,6 +40,88 @@ public class Main extends HttpServlet
 		showHome(req, resp);
 	}
 	
+	// HELPER DURDLES
+	private int getCurrentUnixTime()
+	{
+		return (int) (System.currentTimeMillis() / 1000L);
+	}
+	
+	// Removes a certain description assigned by a certain describer to a certain target
+	private void addDescription(Connection connection, String describerFacebookId,
+			String targetFacebookId, String description) throws ServletException, IOException,
+			JSONException, SQLException
+	{
+		try
+		{
+			Statement stmt = connection.createStatement();
+			String insertPart1 = "INSERT INTO Descriptions VALUES ('" + targetFacebookId + "', '";
+			String insertPart2 = "', '" + describerFacebookId + "', " + String.valueOf(getCurrentUnixTime()) + ")";
+			stmt.executeUpdate(insertPart1 + description + insertPart2);
+		}
+		catch (Exception e) {}
+	}
+	
+	// Removes a certain description assigned by a certain describer to a certain target
+	private void removeDescription(Connection connection, String describerFacebookId, String targetFacebookId, String description)
+			throws ServletException, IOException, JSONException, SQLException
+	{
+		try
+		{
+			Statement stmt = connection.createStatement();
+			String removeDescription = "DELETE FROM Descriptions WHERE targetFacebookId = '" + targetFacebookId + "'" +
+					  " AND describerFacebookId = '" + describerFacebookId +  "'" + " AND description = '" + description + "'";
+			stmt.executeUpdate(removeDescription);
+		}
+		catch (Exception e) {}
+	}
+	
+	private HashSet<String> getDescriptionsOfXByYQuery (Connection connection, String describerFacebookId, String targetFacebookId)
+	{
+		HashSet<String> descriptions = new HashSet<String>();
+		Statement stmt;
+		try
+		{
+			stmt = connection.createStatement();
+			String getDescriptionsQuery = "SELECT description FROM Descriptions WHERE targetFacebookId = '" + targetFacebookId + "'" +
+					  " AND describerFacebookId = '" + describerFacebookId +  "'";
+			ResultSet rs = stmt.executeQuery(getDescriptionsQuery);
+
+			while (rs.next())
+			{
+				String description = rs.getString("description");
+				descriptions.add(description);
+			}
+		}
+		catch (SQLException e)
+		{
+		}
+		return descriptions;
+	}
+	
+	private void dropTable(HttpServletResponse resp, Connection connection)
+			throws ServletException, IOException, JSONException
+		{
+			JSONObject response = new JSONObject();
+			try
+			{
+				Statement stmt = connection.createStatement();
+				stmt.executeUpdate("DROP TABLE Descriptions");
+				response.put("STATUS", "SUCCESS");
+			}
+			catch (JSONException e)
+			{
+				response.put("STATUS", "FAILED");
+				response.put("ERROR", e.getMessage());
+			}
+			catch (SQLException e)
+			{
+				response.put("STATUS", "FAILED");
+				response.put("ERROR", e.getMessage());
+			}
+			resp.getWriter().println(response.toString());
+		}
+	
+	// POST routing
 	@Override
 	protected void doPost(HttpServletRequest req, HttpServletResponse resp)
         throws ServletException, IOException
@@ -74,6 +157,12 @@ public class Main extends HttpServlet
 		try
 		{
 			JSONObject jsonObject = new JSONObject(jb.toString());
+			
+			if (req.getRequestURI().endsWith("/dropTable"))
+			{
+				dropTable(resp, connection);
+			}
+			
 			if (req.getRequestURI().endsWith("/syncDescriptions"))
 			{
 				syncDescriptions(resp, jsonObject, connection);
@@ -101,12 +190,52 @@ public class Main extends HttpServlet
 		}
 	}
 	
-	// 1. /syncDesciptions
+	// ENDPOINTS
+	// Get how a certain describer described a certain target - Used for editing how you've
+	// described someone
+	// 1. /getDescriptionsOfXByY
+	/*
+	 * EXAMPLE REQUEST { "describerFacebookId":"5104494353", "targetFacebookId":"5103660115" }
+	 */
+	private void getDescriptionsOfXByY(HttpServletResponse resp, JSONObject requestBody,
+			Connection connection) throws ServletException, IOException, JSONException
+	{
+		JSONObject response = new JSONObject();
+		JSONArray descriptions = new JSONArray();
+		try
+		{
+			String describerFacebookId = requestBody.getString(DESCRIBER_FACEBOOK_ID_KEY);
+			String targetFacebookId = requestBody.getString(TARGET_FACEBOOK_ID_KEY);
+			try
+			{
+				HashSet<String> descriptionList = getDescriptionsOfXByYQuery(connection,
+						describerFacebookId, targetFacebookId);
+				for (String description : descriptionList)
+				{
+					descriptions.put(description);
+				}
+				response.put(DESCRIPTIONS_KEY, descriptions);
+			}
+			catch (Exception e)
+			{
+				response.put("STATUS", "FAILED");
+				response.put("ERROR", e.getMessage());
+			}
+		}
+		catch (JSONException e)
+		{
+			response.put("STATUS", "FAILED");
+			response.put("ERROR", e.getMessage());
+		}
+		resp.getWriter().print(response.toString());
+	}
+	
+	// 2. /syncDescriptions
 	// Syncs a Describer/Target relationship to what's in the request body, removing/adding descriptions as needed
 	/* EXAMPLE REQUEST
 	{
-	   "describerPhoneNumber":"5104494353",
-	   "targetPhoneNumber":"5103660115",
+	   "describerFacebookId":"5104494353",
+	   "targetFacebookId":"5103660115",
 	   "descriptions":["smart", "a durdle"]
 	} */
 	private void syncDescriptions(HttpServletResponse resp, JSONObject requestBody, Connection connection)
@@ -115,38 +244,34 @@ public class Main extends HttpServlet
 		JSONObject response = new JSONObject();
 		try
 		{
-			String describerPhoneNumber = requestBody.getString(DESCRIBER_PHONE_NUMBER_KEY);
-			String targetPhoneNumber = requestBody.getString(TARGET_PHONE_NUMBER_KEY);
+			String describerFacebookId = requestBody.getString(DESCRIBER_FACEBOOK_ID_KEY);
+			String targetFacebookId = requestBody.getString(TARGET_FACEBOOK_ID_KEY);
 			JSONArray descriptions = requestBody.getJSONArray(DESCRIPTIONS_KEY);
 
 			try
 			{
-				Statement stmt = connection.createStatement();
-				
 				HashSet<String> newDescriptions = new HashSet<String>();
 				for (int i = 0; i < descriptions.length(); i++)
 				{
 					newDescriptions.add(descriptions.getString(i));
 				}
-				HashSet<String> currentDescriptions = getDescriptionsOfXByYQuery(connection, describerPhoneNumber, targetPhoneNumber);
+				HashSet<String> currentDescriptions = getDescriptionsOfXByYQuery(connection, describerFacebookId, targetFacebookId);
 				
 				// First, we delete all of the "revoked" descriptions
 				for (String currentDescription : currentDescriptions)
 				{
 					if (!newDescriptions.contains(currentDescription))
 					{
-						removeDescription(connection, describerPhoneNumber, targetPhoneNumber, currentDescription);
+						removeDescription(connection, describerFacebookId, targetFacebookId, currentDescription);
 					}
 				}
 				
 				// Now we add all of the new descriptions
-				String insertPart1 = "INSERT INTO Descriptions VALUES ('" + targetPhoneNumber + "', '";
-				String insertPart2 = "', '" + describerPhoneNumber + "')";
 				for (String newDescription : newDescriptions)
 				{
 					if (!currentDescriptions.contains(newDescription))
 					{
-						stmt.executeUpdate(insertPart1 + newDescription + insertPart2);
+						addDescription(connection, describerFacebookId, targetFacebookId, newDescription);
 					}
 				}
 				response.put("STATUS", "SUCCESS");
@@ -165,89 +290,11 @@ public class Main extends HttpServlet
 		resp.getWriter().println(response.toString());
 	}
 	
-	// Removes a certain description assigned by a certain describer to a certain target
-	private void removeDescription(Connection connection, String describerPhoneNumber, String targetPhoneNumber, String description)
-			throws ServletException, IOException, JSONException, SQLException
-	{
-		try
-		{
-			Statement stmt = connection.createStatement();
-			String removeDescription = "DELETE FROM Descriptions WHERE targetPhoneNumber = '" + targetPhoneNumber + "'" +
-					  " AND describerPhoneNumber = '" + describerPhoneNumber +  "'" + " AND description = '" + description + "'";
-			stmt.executeUpdate(removeDescription);
-		}
-		catch (Exception e)
-		{
-		}
-	}
-	
-	private HashSet<String> getDescriptionsOfXByYQuery (Connection connection, String describerPhoneNumber, String targetPhoneNumber)
-	{
-		HashSet<String> descriptions = new HashSet<String>();
-		Statement stmt;
-		try
-		{
-			stmt = connection.createStatement();
-			String getDescriptionsQuery = "SELECT description FROM Descriptions WHERE targetPhoneNumber = '" + targetPhoneNumber + "'" +
-					  " AND describerPhoneNumber = '" + describerPhoneNumber +  "'";
-			ResultSet rs = stmt.executeQuery(getDescriptionsQuery);
-
-			while (rs.next())
-			{
-				String description = rs.getString("description");
-				descriptions.add(description);
-			}
-		}
-		catch (SQLException e)
-		{
-		}
-		return descriptions;
-	}
-	
-	// Get how a certain describer described a certain target - Used for editing how you've described someone
-	// 2. /getDescriptionsOfXByY
-	/* EXAMPLE REQUEST
-	{
-	   "describerPhoneNumber":"5104494353",
-	   "targetPhoneNumber":"5103660115"
-	} */
-	private void getDescriptionsOfXByY(HttpServletResponse resp, JSONObject requestBody, Connection connection)
-			throws ServletException, IOException, JSONException
-	{
-		JSONObject response = new JSONObject();
-		JSONArray descriptions = new JSONArray();
-		try
-		{
-			String describerPhoneNumber = requestBody.getString(DESCRIBER_PHONE_NUMBER_KEY);
-			String targetPhoneNumber = requestBody.getString(TARGET_PHONE_NUMBER_KEY);
-			try
-			{
-				HashSet<String> descriptionList = getDescriptionsOfXByYQuery(connection, describerPhoneNumber, targetPhoneNumber);
-				for (String description : descriptionList)
-				{
-					descriptions.put(description);
-				}
-			    response.put(DESCRIPTIONS_KEY, descriptions);
-			}
-			catch (Exception e)
-			{
-				response.put("STATUS", "FAILED");
-				response.put("ERROR", e.getMessage());
-			}
-		}
-		catch (JSONException e)
-		{
-			response.put("STATUS", "FAILED");
-			response.put("ERROR", e.getMessage());
-		}
-		resp.getWriter().print(response.toString());
-	}
-	
 	// Get ALL descriptions that have been assigned to a certain target
 	// 3. /descriptionProfile
 	/* EXAMPLE REQUEST
 	{
-		"targetPhoneNumber":"5103660115",
+		"targetFacebookId":"5103660115",
 	} */
 	private void descriptionProfile(HttpServletResponse resp, JSONObject requestBody, Connection connection)
 			throws ServletException, IOException, JSONException, SQLException
@@ -256,11 +303,11 @@ public class Main extends HttpServlet
 		JSONArray descriptions = new JSONArray();
 		try
 		{
-			String targetPhoneNumber = requestBody.getString(TARGET_PHONE_NUMBER_KEY);
+			String targetFacebookId = requestBody.getString(TARGET_FACEBOOK_ID_KEY);
 			try
 			{
 				Statement stmt = connection.createStatement();
-				ResultSet rs = stmt.executeQuery("SELECT description FROM Descriptions WHERE targetPhoneNumber = '" + targetPhoneNumber + "'");
+				ResultSet rs = stmt.executeQuery("SELECT description FROM Descriptions WHERE targetFacebookId = '" + targetFacebookId + "'");
 				HashMap<String, Integer> descriptionOccurences = new HashMap<String, Integer>();
 				
 				// Get all descriptions associated with phone number from DB. Populate hashmap mapping description to frequency
