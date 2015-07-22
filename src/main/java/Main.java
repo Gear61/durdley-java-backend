@@ -195,7 +195,11 @@ public class Main extends HttpServlet
 	// described someone
 	// 1. /getDescriptionsOfXByY
 	/*
-	 * EXAMPLE REQUEST { "describerFacebookId":"5104494353", "targetFacebookId":"5103660115" }
+	 * EXAMPLE REQUEST
+	 * {
+	 * 		"describerFacebookId":"alex.chiou1",
+	 * 		"targetFacebookId":"nbailey"
+	 * }
 	 */
 	private void getDescriptionsOfXByY(HttpServletResponse resp, JSONObject requestBody,
 			Connection connection) throws ServletException, IOException, JSONException
@@ -234,8 +238,8 @@ public class Main extends HttpServlet
 	// Syncs a Describer/Target relationship to what's in the request body, removing/adding descriptions as needed
 	/* EXAMPLE REQUEST
 	{
-	   "describerFacebookId":"5104494353",
-	   "targetFacebookId":"5103660115",
+	   "describerFacebookId":"alex.chiou1",
+	   "targetFacebookId":"nbailey",
 	   "descriptions":["smart", "a durdle"]
 	} */
 	private void syncDescriptions(HttpServletResponse resp, JSONObject requestBody, Connection connection)
@@ -294,7 +298,7 @@ public class Main extends HttpServlet
 	// 3. /descriptionProfile
 	/* EXAMPLE REQUEST
 	{
-		"targetFacebookId":"5103660115",
+		"targetFacebookId":"nbailey",
 	} */
 	private void descriptionProfile(HttpServletResponse resp, JSONObject requestBody, Connection connection)
 			throws ServletException, IOException, JSONException, SQLException
